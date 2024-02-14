@@ -1,0 +1,36 @@
+name: Build for macOS 12 (large)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-12-large
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install pyenv
+        run: |
+          brew install pyenv
+          echo 'eval "$(pyenv init --path)"' >> ~/.bash_profile
+          eval "$(pyenv init --path)"
+      - name: Set up Python 3.11.7
+        run: pyenv install 3.11.7
+      - name: Install Dependencies
+        run: |
+          cd standalone_app
+          pyenv local 3.11.7
+          pip install -U https://github.com/huggingface/transformers/archive/refs/heads/main.zip
+          pip install --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu -U
+          pip install -r requirements.txt
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: built-artifacts
+          path: dist/
