@@ -2,6 +2,18 @@
 
 Snap2LaTeX is a tool that converts a picture of a mathematical equation into a LaTeX code. It uses https://github.com/NormXU/nougat-latex-ocr to recognize the equation and convert it into LaTeX code.
 
+# Usage
+
+Run the application.
+
+There will be an icon in the system tray.
+
+![](./images/dock-icon.png)
+
+Click on it and select "Capture" to capture a screenshot of the equation. The application will then recognize the equation and display the LaTeX code.
+
+![](./images/screenshot.png)
+
 # Build
 
 ```bash
@@ -14,7 +26,9 @@ pyinstaller Snap2LaTeX.spec
 
 # LICENSE
 
+```
 Copyright 2024 Fan Jiang
 Copyright 2024 NormXU
 
 Apache License 2.0
+```
