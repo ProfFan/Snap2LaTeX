@@ -1,0 +1,11 @@
+# Python dist / build folder
+dist/
+build/
+.eggs/
+*.egg-info/
+.venv/
+__pycache__/
+*.pyc
+
+# dmg files
+*.dmg
