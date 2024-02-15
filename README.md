@@ -4,6 +4,8 @@ Snap2LaTeX is a tool that converts a picture of a mathematical equation into a L
 
 # Usage
 
+Download from [releases](https://github.com/ProfFan/Snap2LaTeX/releases).
+
 Run the application.
 
 There will be an icon in the system tray.

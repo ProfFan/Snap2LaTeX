@@ -5,17 +5,86 @@ from transformers.models.nougat import NougatTokenizerFast
 from transformers import NougatImageProcessor
 import accelerate
 
+import re
 import logging
 from logging import info
 import io
+import sys
+from multiprocessing.queues import Queue
 
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
+from PyQt6.QtCore import Qt
+
+import multiprocessing as mp
+
+class StdoutQueue(Queue):
+    def __init__(self, maxsize=-1, block=True, timeout=None):
+        self.block = block
+        self.timeout = timeout
+        super().__init__(maxsize, ctx=mp.get_context())
+
+    def write(self, msg):
+        self.put(msg)
+
+    def flush(self):
+        sys.__stdout__.flush()
+
+
+def load_model_proc(model_name, q: StdoutQueue):
+    sys.stdout = q
+    sys.stderr = q
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    # init model
+    model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
+
+    q.close()
+
+
+def app_show_progress(model_name):
+    app = QApplication([])
+
+    q = StdoutQueue()
+    load_process = mp.Process(target=load_model_proc, args=(model_name, q))
+    load_process.start()
+
+    # Progress window
+    progress = QProgressDialog()
+    progress.setLabelText("Loading model...")
+    progress.setWindowModality(Qt.WindowModality.WindowModal)
+    # disable the cancel button
+    progress.setCancelButton(None)
+
+    while load_process.is_alive():
+        while not q.empty():
+            # match the ":   5%|" pattern with the regex
+            # and extract the percentage
+            match = re.search(r":\s+(\d+)%\|", q.get())
+            if match:
+                progress.setValue(int(match.group(1)))
+
+            # append the message to the progress window
+            progress.setLabelText(q.get())
+        app.processEvents()
+
+    print("Model loaded.")
+
+    load_process.join()
+    progress.close()
+    app.quit()
+    print("Model check complete.")
 
 if __name__ == "__main__":
+    mp.freeze_support()
 
     model_name = "Norm/nougat-latex-base"
     device = "mps" if torch.backends.mps.is_available() else "cpu"
+
+    app_show_progress(model_name)
+
+    app = QApplication([])
+    app.setQuitOnLastWindowClosed(False)
+
     # init model
     model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
 
@@ -25,9 +94,6 @@ if __name__ == "__main__":
     latex_processor = NougatImageProcessor.from_pretrained(model_name)
 
     info("Loaded model.")
-
-    app = QApplication([])
-    app.setQuitOnLastWindowClosed(False)
 
     # Create the icon
     from os import path
