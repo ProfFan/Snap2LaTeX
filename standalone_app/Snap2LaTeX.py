@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import *
 if __name__ == "__main__":
 
     model_name = "Norm/nougat-latex-base"
-    device = "mps" if torch.cuda.is_available() else "mps"
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
     # init model
-    model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map="mps")
+    model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
 
     # init processor
     tokenizer = NougatTokenizerFast.from_pretrained(model_name)

@@ -1,4 +1,4 @@
-name: Build for macOS 12 (large)
+name: Build for macOS 12 (Intel)
 
 on:
   push:
@@ -29,8 +29,13 @@ jobs:
           pip install -U https://github.com/huggingface/transformers/archive/refs/heads/main.zip
           pip install --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu -U
           pip install -r requirements.txt
+      - name: Build standalone app
+        run: |
+          cd standalone_app
+          pyenv local 3.11.7
+          pyinstaller Snap2LaTeX.spec
       - name: Archive artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: built-artifacts
-          path: dist/
+          name: Snap2LaTeX.app
+          path: standalone_app/dist/Snap2LaTeX.app
