@@ -14,7 +14,7 @@ from multiprocessing.queues import Queue
 
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 import multiprocessing as mp
 
@@ -105,6 +105,8 @@ if __name__ == "__main__":
 
     path_to_icon = path.abspath(path.join(path.dirname(__file__), "icon.png"))
     icon = QIcon(path_to_icon)
+    path_to_inproc_icon = path.abspath(path.join(path.dirname(__file__), "inproc.png"))
+    icon_inproc = QIcon(path_to_inproc_icon)
 
     # Create the tray
     tray = QSystemTrayIcon()
@@ -112,16 +114,8 @@ if __name__ == "__main__":
     tray.setVisible(True)
     tray.setObjectName("Image2LaTeX")
 
-    def capture():
-        # capture the screen interactively
+    def analyze_image(temp_file, temp_dir):
         import os
-
-        # make a temp folder
-        import tempfile
-
-        temp_dir = tempfile.mkdtemp("image2latex")
-        temp_file = os.path.join(temp_dir, "capture.png")
-        os.system(f"screencapture -i -Jselection {temp_file}")
 
         try:
             image = Image.open(temp_file)
@@ -166,6 +160,23 @@ if __name__ == "__main__":
         finally:
             os.remove(temp_file)
             os.rmdir(temp_dir)
+            tray.setIcon(icon)
+
+    def capture():
+        # capture the screen interactively
+        import os
+
+        # make a temp folder
+        import tempfile
+
+        temp_dir = tempfile.mkdtemp("image2latex")
+        temp_file = os.path.join(temp_dir, "capture.png")
+        os.system(f"screencapture -i -Jselection {temp_file}")
+
+        # set the qicon to a processing icon
+        tray.setIcon(icon_inproc)
+
+        QTimer.singleShot(1, lambda: analyze_image(temp_file, temp_dir))
 
     # Create the menu
     menu = QMenu()

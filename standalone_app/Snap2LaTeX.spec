@@ -5,7 +5,7 @@ a = Analysis(
     ['Snap2LaTeX.py'],
     pathex=[],
     binaries=[],
-    datas=[("icon.png", ".")],
+    datas=[("icon.png", "."), ("inproc.png", ".")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
