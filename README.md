@@ -14,11 +14,11 @@ There will be an icon in the system tray.
 
 Click on it and select "Capture" to capture a screenshot of the equation. The application will then recognize the equation and display the LaTeX code.
 
-![](./images/latex-img.png)
+| Capture | LaTeX |
+| --- | --- |
+| ![](./images/latex-img.png) | ![](./images/screenshot.png) |
 
-![](./images/screenshot.png)
-
-Double click on the LaTeX code and right click to copy.
+**Double click on the LaTeX code and right click to copy.**
 
 | Matrix | Code |
 | --- | --- |
