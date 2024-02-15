@@ -14,9 +14,11 @@ from multiprocessing.queues import Queue
 
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QUrl
 
 import multiprocessing as mp
+
+VERSION = "0.4.0"
 
 
 class StdoutQueue(Queue):
@@ -107,6 +109,7 @@ if __name__ == "__main__":
     icon = QIcon(path_to_icon)
     path_to_inproc_icon = path.abspath(path.join(path.dirname(__file__), "inproc.png"))
     icon_inproc = QIcon(path_to_inproc_icon)
+    icon_pixmap = QPixmap(path_to_icon)
 
     # Create the tray
     tray = QSystemTrayIcon()
@@ -151,10 +154,12 @@ if __name__ == "__main__":
 
             # show the response in a dialog
             dialog = QMessageBox()
+            dialog.setIconPixmap(icon_pixmap)
             dialog.setText(sequence)
             dialog.exec()
         except Exception as e:
             dialog = QMessageBox()
+            dialog.setIconPixmap(icon_pixmap)
             dialog.setText(f"An error occurred: {e}")
             dialog.exec()
         finally:
@@ -184,14 +189,65 @@ if __name__ == "__main__":
     action.triggered.connect(capture)
     menu.addAction(action)
 
+    # Add a "Check for Updates" option to the menu
+    def check_for_updates():
+        import requests
+        import json
+
+        try:
+            response = requests.get(
+                "https://api.github.com/repos/ProfFan/Snap2LaTeX/releases/latest"
+            )
+            response.raise_for_status()
+            data = response.json()
+            latest_version = data["tag_name"]
+            if latest_version != VERSION:
+                dialog = QMessageBox()
+                dialog.setIconPixmap(icon_pixmap)
+                dialog.setText(
+                    f"A new version of Snap2LaTeX is available: {latest_version}"
+                )
+                # add a button to open the release page and a button to close the dialog
+                open_button = dialog.addButton(
+                    "Open", QMessageBox.ButtonRole.ActionRole
+                )
+                dialog.addButton(QMessageBox.StandardButton.Close)
+
+                # open the release page when the open button is clicked
+                open_button.clicked.connect(
+                    lambda: QDesktopServices.openUrl(
+                        QUrl("https://github.com/ProfFan/Snap2LaTeX/releases")
+                    )
+                )
+
+                dialog.exec()
+            else:
+                dialog = QMessageBox()
+                dialog.setIconPixmap(icon_pixmap)
+                dialog.setText("Snap2LaTeX is up to date.")
+                dialog.exec()
+        except requests.RequestException as e:
+            dialog = QMessageBox()
+            dialog.setIconPixmap(icon_pixmap)
+            dialog.setText(f"An error occurred: {e}")
+            dialog.exec()
+
+    check_updates = QAction("Check for Updates")
+    check_updates.triggered.connect(check_for_updates)
+    menu.addAction(check_updates)
+
     # Add About option to the menu
     def about_window():
         dialog = QMessageBox()
         dialog.setText(
-            """Snap2LaTeX ©2024 Fan Jiang
-Snap2LaTeX is a tool that converts a picture of a mathematical equation into a LaTeX code. Model by @NormXU: https://github.com/NormXU/nougat-latex-ocr.
+            f"""Snap2LaTeX ©2024 Fan Jiang Version {VERSION}\n
+Snap2LaTeX is a tool that converts a picture of a mathematical equation into a LaTeX code.\n
+Check for Updates at: https://github.com/ProfFan/Snap2LaTeX/releases \n
+Model by @NormXU: https://github.com/NormXU/nougat-latex-ocr.
         """
         )
+        # set dialog pixmap
+        dialog.setIconPixmap(icon_pixmap)
         dialog.exec()
 
     about = QAction("About")
