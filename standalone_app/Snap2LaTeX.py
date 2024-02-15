@@ -80,6 +80,7 @@ def app_show_progress(model_name):
     app.quit()
     print("Model check complete.")
 
+USE_FLOAT16 = False
 
 if __name__ == "__main__":
     mp.freeze_support()
@@ -94,6 +95,10 @@ if __name__ == "__main__":
 
     # init model
     model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
+
+    # convert to float16
+    if USE_FLOAT16:
+        model = model.half()
 
     # init processor
     tokenizer = NougatTokenizerFast.from_pretrained(model_name)
@@ -126,6 +131,9 @@ if __name__ == "__main__":
                 image = image.convert("RGB")
 
             pixel_values = latex_processor(image, return_tensors="pt").pixel_values
+
+            if USE_FLOAT16:
+                pixel_values = pixel_values.half()
 
             decoder_input_ids = tokenizer(
                 tokenizer.bos_token, add_special_tokens=False, return_tensors="pt"
@@ -188,6 +196,28 @@ if __name__ == "__main__":
     action = QAction("Capture")
     action.triggered.connect(capture)
     menu.addAction(action)
+
+    # Add an "Options" submenu
+    options = QMenu("Options")
+    menu.addMenu(options)
+
+    # Add a "Use Float16" checkbox to the "Options" submenu
+    use_float16 = QAction("Use Float16", checkable=True)
+    use_float16.setChecked(USE_FLOAT16)
+
+    def set_use_float16(checked):
+        global model
+        global USE_FLOAT16
+        USE_FLOAT16 = checked
+        if checked:
+            print("Using float16.")
+            model.half()
+        else:
+            print("Using float32.")
+            # reload the model
+            model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
+    use_float16.triggered.connect(set_use_float16)
+    options.addAction(use_float16)
 
     # Add a "Check for Updates" option to the menu
     def check_for_updates():
