@@ -14,6 +14,8 @@ Click on it and select "Capture" to capture a screenshot of the equation. The ap
 
 ![](./images/screenshot.png)
 
+Double click on the LaTeX code and right click to copy.
+
 # Build
 
 ```bash

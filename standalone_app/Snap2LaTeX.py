@@ -31,7 +31,8 @@ if __name__ == "__main__":
 
     # Create the icon
     from os import path
-    path_to_icon = path.abspath(path.join(path.dirname(__file__), 'icon.png'))
+
+    path_to_icon = path.abspath(path.join(path.dirname(__file__), "icon.png"))
     icon = QIcon(path_to_icon)
 
     # Create the tray
@@ -100,6 +101,20 @@ if __name__ == "__main__":
     action = QAction("Capture")
     action.triggered.connect(capture)
     menu.addAction(action)
+
+    # Add About option to the menu
+    def about_window():
+        dialog = QMessageBox()
+        dialog.setText(
+            """Snap2LaTeX ©2024 Fan Jiang
+Snap2LaTeX is a tool that converts a picture of a mathematical equation into a LaTeX code. Model by @NormXU: https://github.com/NormXU/nougat-latex-ocr.
+        """
+        )
+        dialog.exec()
+
+    about = QAction("About")
+    about.triggered.connect(about_window)
+    menu.addAction(about)
 
     # Add a Quit option to the menu.
     quit = QAction("Quit")
