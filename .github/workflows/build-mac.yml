@@ -1,4 +1,4 @@
-name: Build for macOS 12 (Intel)
+name: Build for macOS 12 (Intel) and macOS 13 (Apple Silicon)
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-12-large
+    runs-on: macos-12-large, macos-13-xlarge
 
     steps:
       - name: Checkout code
