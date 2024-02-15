@@ -8,6 +8,10 @@ Download from [releases](https://github.com/ProfFan/Snap2LaTeX/releases).
 
 Run the application.
 
+The application will start downloading the model. It will take a few minutes.
+
+![](./images/downloading.png)
+
 There will be an icon in the system tray.
 
 ![](./images/dock-icon.png)

@@ -18,6 +18,7 @@ from PyQt6.QtCore import Qt
 
 import multiprocessing as mp
 
+
 class StdoutQueue(Queue):
     def __init__(self, maxsize=-1, block=True, timeout=None):
         self.block = block
@@ -54,6 +55,9 @@ def app_show_progress(model_name):
     progress.setWindowModality(Qt.WindowModality.WindowModal)
     # disable the cancel button
     progress.setCancelButton(None)
+    progress.setWindowFlags(
+        Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint
+    )
 
     while load_process.is_alive():
         while not q.empty():
@@ -73,6 +77,7 @@ def app_show_progress(model_name):
     progress.close()
     app.quit()
     print("Model check complete.")
+
 
 if __name__ == "__main__":
     mp.freeze_support()
