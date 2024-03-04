@@ -33,10 +33,10 @@ Click on it and select "Capture" to capture a screenshot of the equation. The ap
 # Build
 
 ```bash
+cd standalone_app
 pip install -U https://github.com/huggingface/transformers/archive/refs/heads/main.zip
 pip install --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu -U
 pip install -r requirements.txt
-cd standalone_app
 pyinstaller Snap2LaTeX.spec
 ```
 
