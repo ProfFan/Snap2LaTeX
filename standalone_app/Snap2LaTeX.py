@@ -92,6 +92,7 @@ if __name__ == "__main__":
 
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
+    clipboard = app.clipboard()
 
     # init model
     model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
@@ -164,7 +165,9 @@ if __name__ == "__main__":
             dialog = QMessageBox()
             dialog.setIconPixmap(icon_pixmap)
             dialog.setText(sequence)
+            clipboard.setText(sequence)
             dialog.exec()
+
         except Exception as e:
             dialog = QMessageBox()
             dialog.setIconPixmap(icon_pixmap)
