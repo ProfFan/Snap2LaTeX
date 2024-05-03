@@ -18,7 +18,7 @@ from PyQt6.QtCore import Qt, QTimer, QUrl
 
 import multiprocessing as mp
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 
 class StdoutQueue(Queue):
@@ -144,11 +144,11 @@ if __name__ == "__main__":
                     pixel_values.to(device),
                     decoder_input_ids=decoder_input_ids.to(device),
                     max_length=model.decoder.config.max_length,
-                    early_stopping=True,
+                    early_stopping=False,
                     pad_token_id=tokenizer.pad_token_id,
                     eos_token_id=tokenizer.eos_token_id,
                     use_cache=True,
-                    num_beams=5,
+                    num_beams=1,
                     bad_words_ids=[[tokenizer.unk_token_id]],
                     return_dict_in_generate=True,
                 )
@@ -173,6 +173,7 @@ if __name__ == "__main__":
             dialog.setIconPixmap(icon_pixmap)
             dialog.setText(f"An error occurred: {e}")
             dialog.exec()
+            raise e
         finally:
             os.remove(temp_file)
             os.rmdir(temp_dir)
