@@ -193,7 +193,11 @@ if __name__ == "__main__":
         # set the qicon to a processing icon
         tray.setIcon(icon_inproc)
 
-        QTimer.singleShot(1, lambda: analyze_image(temp_file, temp_dir))
+        if os.path.exists(temp_file):
+            QTimer.singleShot(1, lambda: analyze_image(temp_file, temp_dir))
+        else:
+            os.rmdir(temp_dir)
+            tray.setIcon(icon)
 
     # Create the menu
     menu = QMenu()
