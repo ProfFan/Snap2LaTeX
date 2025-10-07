@@ -5,7 +5,7 @@ a = Analysis(
     ['Snap2LaTeX.py'],
     pathex=[],
     binaries=[],
-    datas=[("icon.png", "."), ("inproc.png", ".")],
+    datas=[("resources", "resources")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -44,7 +44,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Snap2LaTeX.app',
-    icon='icon.icns',
+    icon='resources/icon.icns',
     bundle_identifier="me.fanjiang.Snap2LaTeX",
     info_plist={
         'LSUIElement': True,

@@ -1,8 +1,8 @@
 accelerate
 pyinstaller
-pyqt6
 chardet
 torch
 torchvision
 transformers
 Pillow
+rumps

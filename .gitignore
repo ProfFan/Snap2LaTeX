@@ -9,3 +9,5 @@ __pycache__/
 
 # dmg files
 *.dmg
+
+.DS_Store
