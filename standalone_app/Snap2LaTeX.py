@@ -30,11 +30,11 @@ class Snap2LaTeXApp(rumps.App):
         # Initialize rumps app with icon and template mode
         super().__init__("Snap2LaTeX", icon="resources/snap2latex.png", quit_button=None, template=True)
 
-        # Set up the complete menu including options submenu
-        self.setup_menu()
-        
         # Optionally auto-load model (comment out if you want manual loading only)
         self.load_model()
+        
+        # Set up the complete menu including options submenu (after model loading)
+        self.setup_menu()
         
     def setup_menu(self):
         """Set up the complete menu structure"""
@@ -89,9 +89,6 @@ class Snap2LaTeXApp(rumps.App):
             
             rumps.notification("Snap2LaTeX", "", "Model loaded successfully!")
             info("Model loaded.")
-            
-            # Update menu to reflect model loaded state
-            self.setup_menu()
             
         except Exception as e:
             rumps.alert("Error", f"Failed to load model: {e}")
@@ -184,9 +181,8 @@ class Snap2LaTeXApp(rumps.App):
             rumps.notification("Snap2LaTeX", "", "Switching to Float32 mode...")
             # Reload model
             self.load_model()
-        
-        # Refresh menu to update states
-        self.setup_menu()
+            # Only refresh menu after reloading model
+            self.setup_menu()
 
     @rumps.clicked("Check for Updates")
     def check_for_updates(self, _):
