@@ -118,7 +118,7 @@ class Snap2LaTeXApp(rumps.App):
                 outputs = self.model.generate(
                     pixel_values.to(self.device),
                     decoder_input_ids=decoder_input_ids.to(self.device),
-                    max_length=self.model.decoder.config.max_length,
+                    max_length=getattr(self.model.decoder.config, "max_length", 800),
                     early_stopping=False,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
