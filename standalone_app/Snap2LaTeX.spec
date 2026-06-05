@@ -1,12 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+
+# transformers 大量使用 _LazyModule（用字符串引用子模块），PyInstaller 的静态分析
+# 跟不进去，会漏掉 configuration_xxx 等模块。import 时 @auto_docstring 装饰器会
+# 通过 CONFIG_MAPPING 懒加载这些 config，缺了就报
+# "module transformers has no attribute NougatConfig"。这里把子模块和数据文件收全。
+hiddenimports = collect_submodules('transformers')
+datas = [("resources", "resources")] + collect_data_files('transformers')
 
 a = Analysis(
     ['Snap2LaTeX.py'],
     pathex=[],
     binaries=[],
-    datas=[("resources", "resources")],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

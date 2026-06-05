@@ -32,13 +32,18 @@ Click on it and select "Capture" to capture a screenshot of the equation. The ap
 
 # Build
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/); exact versions
+are pinned in `standalone_app/uv.lock`. Install uv, then:
+
 ```bash
 cd standalone_app
-pip install -U https://github.com/huggingface/transformers/archive/refs/heads/main.zip
-pip install --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu -U
-pip install -r requirements.txt
-pyinstaller Snap2LaTeX.spec
+uv sync                                      # create venv + install from the lockfile
+uv run pyinstaller Snap2LaTeX.spec --noconfirm
 ```
+
+The app bundle is written to `standalone_app/dist/Snap2LaTeX.app`. See
+[`standalone_app/README.md`](./standalone_app/README.md) for details (running
+from source, managing dependencies, troubleshooting).
 
 # Alternatives
 
