@@ -3,301 +3,235 @@ from PIL import Image
 from transformers import VisionEncoderDecoderModel
 from transformers.models.nougat import NougatTokenizerFast
 from transformers import NougatImageProcessor
-import accelerate
 
-import re
-import logging
 from logging import info
-import io
-import sys
-from multiprocessing.queues import Queue
+import os
+import tempfile
+import webbrowser
+import subprocess
 
-from PyQt6.QtGui import *
-from PyQt6.QtWidgets import *
-from PyQt6.QtCore import Qt, QTimer, QUrl
-
+import rumps
 import multiprocessing as mp
 
 VERSION = "0.6.0"
 
-
-class StdoutQueue(Queue):
-    def __init__(self, maxsize=-1, block=True, timeout=None):
-        self.block = block
-        self.timeout = timeout
-        super().__init__(maxsize, ctx=mp.get_context())
-
-    def write(self, msg):
-        self.put(msg)
-
-    def flush(self):
-        sys.__stdout__.flush()
-
-
-def load_model_proc(model_name, q: StdoutQueue):
-    sys.stdout = q
-    sys.stderr = q
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
-    # init model
-    model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
-
-    q.close()
-
-
-def app_show_progress(model_name):
-    app = QApplication([])
-
-    q = StdoutQueue()
-    load_process = mp.Process(target=load_model_proc, args=(model_name, q))
-    load_process.start()
-
-    # Progress window
-    progress = QProgressDialog()
-    progress.setLabelText("Loading model...")
-    progress.setWindowModality(Qt.WindowModality.WindowModal)
-    # disable the cancel button
-    progress.setCancelButton(None)
-    progress.setWindowFlags(
-        Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint
-    )
-
-    while load_process.is_alive():
-        while not q.empty():
-            # match the ":   5%|" pattern with the regex
-            # and extract the percentage
-            match = re.search(r":\s+(\d+)%\|", q.get())
-            if match:
-                progress.setValue(int(match.group(1)))
-
-            # append the message to the progress window
-            progress.setLabelText(q.get())
-        app.processEvents()
-
-    print("Model loaded.")
-
-    load_process.join()
-    progress.close()
-    app.quit()
-    print("Model check complete.")
-
 USE_FLOAT16 = False
 
-if __name__ == "__main__":
-    mp.freeze_support()
+class Snap2LaTeXApp(rumps.App):
+    def __init__(self):
+        # Initialize the AI model
+        self.model_name = "Norm/nougat-latex-base"
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.model = None
+        self.tokenizer = None
+        self.latex_processor = None
+        self.USE_FLOAT16 = False
+        
+        # Initialize rumps app with icon and template mode
+        super().__init__("Snap2LaTeX", icon="resources/snap2latex.png", quit_button=None, template=True)
 
-    model_name = "Norm/nougat-latex-base"
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
-
-    app_show_progress(model_name)
-
-    app = QApplication([])
-    app.setQuitOnLastWindowClosed(False)
-    clipboard = app.clipboard()
-
-    # init model
-    model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
-
-    # convert to float16
-    if USE_FLOAT16:
-        model = model.half()
-
-    # init processor
-    tokenizer = NougatTokenizerFast.from_pretrained(model_name)
-
-    latex_processor = NougatImageProcessor.from_pretrained(model_name)
-
-    info("Loaded model.")
-
-    # Create the icon
-    from os import path
-
-    path_to_icon = path.abspath(path.join(path.dirname(__file__), "icon.png"))
-    icon = QIcon(path_to_icon)
-    path_to_inproc_icon = path.abspath(path.join(path.dirname(__file__), "inproc.png"))
-    icon_inproc = QIcon(path_to_inproc_icon)
-    icon_pixmap = QPixmap(path_to_icon)
-
-    # Create the tray
-    tray = QSystemTrayIcon()
-    tray.setIcon(icon)
-    tray.setVisible(True)
-    tray.setObjectName("Image2LaTeX")
-
-    def analyze_image(temp_file, temp_dir):
-        import os
-
+        # Optionally auto-load model (comment out if you want manual loading only)
+        self.load_model()
+        
+        # Set up the complete menu including options submenu (after model loading)
+        self.setup_menu()
+        
+    def setup_menu(self):
+        """Set up the complete menu structure"""
+        # Create the Options submenu items
+        float16_item = rumps.MenuItem("Use Float16", callback=self.toggle_float16)
+        float16_item.state = 1 if self.USE_FLOAT16 else 0
+        
+        # Create load model item (dynamic text and state)
+        if self.model is None:
+            load_model_item = rumps.MenuItem("Load Model", callback=self.manual_load_model)
+        else:
+            load_model_item = rumps.MenuItem("Model Loaded")
+            load_model_item.set_callback(None)  # Disable callback
+        
+        # Create the Options submenu
+        options_menu = rumps.MenuItem("Options")
+        options_menu.add(load_model_item)
+        options_menu.add(None)  # Separator in submenu
+        options_menu.add(float16_item)
+        
+        # Set up the complete menu structure
+        self.menu = [
+            "Capture",
+            options_menu,
+            None,  # Separator
+            "Check for Updates", 
+            "About",
+            None,  # Separator
+            "Quit"
+        ]
+        
+    def manual_load_model(self, sender):
+        """Manually load the AI model when clicked from menu"""
+        self.load_model()
+        # Refresh the menu to update the load model item
+        self.setup_menu()
+    
+    def load_model(self):
+        """Load the AI model"""
         try:
-            image = Image.open(temp_file)
+            rumps.notification("Snap2LaTeX", "", "Loading model...")
+            
+            # Load model
+            self.model = VisionEncoderDecoderModel.from_pretrained(self.model_name, device_map=self.device)
+            
+            if self.USE_FLOAT16:
+                self.model = self.model.half()
+                
+            # Load tokenizer and processor
+            self.tokenizer = NougatTokenizerFast.from_pretrained(self.model_name)
+            self.latex_processor = NougatImageProcessor.from_pretrained(self.model_name)
+            
+            rumps.notification("Snap2LaTeX", "", "Model loaded successfully!")
+            info("Model loaded.")
+            
+        except Exception as e:
+            rumps.alert("Error", f"Failed to load model: {e}")
+            self.model = None  # Reset model state on error
+    
+    def analyze_image(self, image_path):
+        """Analyze image and convert to LaTeX"""
+        try:
+            if not self.model:
+                rumps.alert("Error", "Model not loaded yet. Please wait.")
+                return
+                
+            image = Image.open(image_path)
             if not image.mode == "RGB":
                 image = image.convert("RGB")
 
-            pixel_values = latex_processor(image, return_tensors="pt").pixel_values
+            pixel_values = self.latex_processor(image, return_tensors="pt").pixel_values
 
-            if USE_FLOAT16:
+            if self.USE_FLOAT16:
                 pixel_values = pixel_values.half()
 
-            decoder_input_ids = tokenizer(
-                tokenizer.bos_token, add_special_tokens=False, return_tensors="pt"
+            decoder_input_ids = self.tokenizer(
+                self.tokenizer.bos_token, add_special_tokens=False, return_tensors="pt"
             ).input_ids
+            
             with torch.no_grad():
-                outputs = model.generate(
-                    pixel_values.to(device),
-                    decoder_input_ids=decoder_input_ids.to(device),
-                    max_length=model.decoder.config.max_length,
+                outputs = self.model.generate(
+                    pixel_values.to(self.device),
+                    decoder_input_ids=decoder_input_ids.to(self.device),
+                    max_length=getattr(self.model.decoder.config, "max_length", 800),
                     early_stopping=False,
-                    pad_token_id=tokenizer.pad_token_id,
-                    eos_token_id=tokenizer.eos_token_id,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
                     use_cache=True,
                     num_beams=1,
-                    bad_words_ids=[[tokenizer.unk_token_id]],
+                    bad_words_ids=[[self.tokenizer.unk_token_id]],
                     return_dict_in_generate=True,
                 )
-            sequence = tokenizer.batch_decode(outputs.sequences)[0]
+            
+            sequence = self.tokenizer.batch_decode(outputs.sequences)[0]
             sequence = (
-                sequence.replace(tokenizer.eos_token, "")
-                .replace(tokenizer.pad_token, "")
-                .replace(tokenizer.bos_token, "")
+                sequence.replace(self.tokenizer.eos_token, "")
+                .replace(self.tokenizer.pad_token, "")
+                .replace(self.tokenizer.bos_token, "")
             )
 
             info(f"${sequence}$")
 
-            # show the response in a dialog
-            dialog = QMessageBox()
-            dialog.setIconPixmap(icon_pixmap)
-            dialog.setText(sequence)
-            clipboard.setText(sequence)
-            dialog.exec()
+            # Copy to clipboard
+            subprocess.run(['pbcopy'], input=sequence.encode('utf-8'))
+            
+            # Show result
+            rumps.alert("LaTeX Result", f"Copied to clipboard:\n\n{sequence}")
 
         except Exception as e:
-            dialog = QMessageBox()
-            dialog.setIconPixmap(icon_pixmap)
-            dialog.setText(f"An error occurred: {e}")
-            dialog.exec()
+            rumps.alert("Error", f"An error occurred: {e}")
             raise e
-        finally:
-            os.remove(temp_file)
-            os.rmdir(temp_dir)
-            tray.setIcon(icon)
 
-    def capture():
-        # capture the screen interactively
-        import os
-
-        # make a temp folder
-        import tempfile
-
-        temp_dir = tempfile.mkdtemp("image2latex")
-        temp_file = os.path.join(temp_dir, "capture.png")
-        os.system(f"screencapture -i -Jselection {temp_file}")
-
-        # set the qicon to a processing icon
-        tray.setIcon(icon_inproc)
-
-        if os.path.exists(temp_file):
-            QTimer.singleShot(1, lambda: analyze_image(temp_file, temp_dir))
-        else:
-            os.rmdir(temp_dir)
-            tray.setIcon(icon)
-
-    # Create the menu
-    menu = QMenu()
-    action = QAction("Capture")
-    action.triggered.connect(capture)
-    menu.addAction(action)
-
-    # Add an "Options" submenu
-    options = QMenu("Options")
-    menu.addMenu(options)
-
-    # Add a "Use Float16" checkbox to the "Options" submenu
-    use_float16 = QAction("Use Float16", checkable=True)
-    use_float16.setChecked(USE_FLOAT16)
-
-    def set_use_float16(checked):
-        global model
-        global USE_FLOAT16
-        USE_FLOAT16 = checked
-        if checked:
-            print("Using float16.")
-            model.half()
-        else:
-            print("Using float32.")
-            # reload the model
-            model = VisionEncoderDecoderModel.from_pretrained(model_name, device_map=device)
-    use_float16.triggered.connect(set_use_float16)
-    options.addAction(use_float16)
-
-    # Add a "Check for Updates" option to the menu
-    def check_for_updates():
-        import requests
-        import json
-
+    @rumps.clicked("Capture")
+    def capture(self, _):
+        """Capture screenshot and analyze"""
         try:
+            # Create temp file
+            temp_dir = tempfile.mkdtemp("snap2latex")
+            temp_file = os.path.join(temp_dir, "capture.png")
+            
+            # Capture screen interactively
+            result = subprocess.run(f"screencapture -i -Jselection {temp_file}", shell=True)
+            
+            if os.path.exists(temp_file):
+                rumps.notification("Snap2LaTeX", "", "Processing image...")
+                self.analyze_image(temp_file)
+                os.remove(temp_file)
+            
+            os.rmdir(temp_dir)
+            
+        except Exception as e:
+            rumps.alert("Error", f"Capture failed: {e}")
+    
+    def toggle_float16(self, sender):
+        """Toggle Float16 mode"""
+        self.USE_FLOAT16 = not self.USE_FLOAT16
+        sender.state = 1 if self.USE_FLOAT16 else 0
+        
+        if self.USE_FLOAT16:
+            rumps.notification("Snap2LaTeX", "", "Switching to Float16 mode...")
+            if self.model:
+                self.model.half()
+        else:
+            rumps.notification("Snap2LaTeX", "", "Switching to Float32 mode...")
+            # Reload model
+            self.load_model()
+            # Only refresh menu after reloading model
+            self.setup_menu()
+
+    @rumps.clicked("Check for Updates")
+    def check_for_updates(self, _):
+        """Check for updates"""
+        try:
+            import requests
+            import json
+
             response = requests.get(
                 "https://api.github.com/repos/ProfFan/Snap2LaTeX/releases/latest"
             )
             response.raise_for_status()
             data = response.json()
             latest_version = data["tag_name"]
+            
             if latest_version != VERSION:
-                dialog = QMessageBox()
-                dialog.setIconPixmap(icon_pixmap)
-                dialog.setText(
-                    f"A new version of Snap2LaTeX is available: {latest_version}"
+                response = rumps.alert(
+                    "Update Available",
+                    f"A new version of Snap2LaTeX is available: {latest_version}\n\nWould you like to open the releases page?",
+                    ok="Open",
+                    cancel="Cancel"
                 )
-                # add a button to open the release page and a button to close the dialog
-                open_button = dialog.addButton(
-                    "Open", QMessageBox.ButtonRole.ActionRole
-                )
-                dialog.addButton(QMessageBox.StandardButton.Close)
-
-                # open the release page when the open button is clicked
-                open_button.clicked.connect(
-                    lambda: QDesktopServices.openUrl(
-                        QUrl("https://github.com/ProfFan/Snap2LaTeX/releases")
-                    )
-                )
-
-                dialog.exec()
+                if response == 1:  # OK button clicked
+                    webbrowser.open("https://github.com/ProfFan/Snap2LaTeX/releases")
             else:
-                dialog = QMessageBox()
-                dialog.setIconPixmap(icon_pixmap)
-                dialog.setText("Snap2LaTeX is up to date.")
-                dialog.exec()
-        except requests.RequestException as e:
-            dialog = QMessageBox()
-            dialog.setIconPixmap(icon_pixmap)
-            dialog.setText(f"An error occurred: {e}")
-            dialog.exec()
+                rumps.alert("Up to Date", "Snap2LaTeX is up to date.")
+                
+        except Exception as e:
+            rumps.alert("Error", f"Failed to check for updates: {e}")
 
-    check_updates = QAction("Check for Updates")
-    check_updates.triggered.connect(check_for_updates)
-    menu.addAction(check_updates)
+    @rumps.clicked("About")
+    def about(self, _):
+        """Show about dialog"""
+        about_text = f"""Snap2LaTeX ©2024 Fan Jiang Version {VERSION}
 
-    # Add About option to the menu
-    def about_window():
-        dialog = QMessageBox()
-        dialog.setText(
-            f"""Snap2LaTeX ©2024 Fan Jiang Version {VERSION}\n
-Snap2LaTeX is a tool that converts a picture of a mathematical equation into a LaTeX code.\n
-Check for Updates at: https://github.com/ProfFan/Snap2LaTeX/releases \n
-Model by @NormXU: https://github.com/NormXU/nougat-latex-ocr.
-        """
-        )
-        # set dialog pixmap
-        dialog.setIconPixmap(icon_pixmap)
-        dialog.exec()
+Snap2LaTeX is a tool that converts a picture of a mathematical equation into a LaTeX code.
 
-    about = QAction("About")
-    about.triggered.connect(about_window)
-    menu.addAction(about)
+Check for Updates at: https://github.com/ProfFan/Snap2LaTeX/releases
 
-    # Add a Quit option to the menu.
-    quit = QAction("Quit")
-    quit.triggered.connect(app.quit)
-    menu.addAction(quit)
+Model by @NormXU: https://github.com/NormXU/nougat-latex-ocr"""
+        
+        rumps.alert("About Snap2LaTeX", about_text)
 
-    # Add the menu to the tray
-    tray.setContextMenu(menu)
+    @rumps.clicked("Quit")
+    def quit_app(self, _):
+        """Quit the application"""
+        rumps.quit_application()
 
-    app.exec()
+
+if __name__ == "__main__":
+    mp.freeze_support()
+    Snap2LaTeXApp().run()
